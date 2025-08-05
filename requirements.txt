@@ -3,4 +3,5 @@ pandas
 numpy
 openpyxl
 plotly
+scipy
 numpy-financial
