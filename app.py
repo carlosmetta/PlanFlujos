@@ -189,9 +189,9 @@ with tab1:
                 "metodo": método,
                 "sigma": suavizado_sigma,
                 "data": pd.DataFrame({
-                    "Month": month_df['Month'].values,  # 👈 esto previene que se guarde como índice
-                    "Amount": signed_amounts.values
-                }).reset_index(drop=True)
+                    "Month": month_df['Month'],
+                    "Amount": signed_amounts
+                })
             })
             st.success(f"✅ Flujo '{nombre}' agregado correctamente.")
             st.rerun()
@@ -205,32 +205,15 @@ with tab2:
         st.info("🔔 No hay flujos guardados todavía.")
     else:
         # Combinar todos los flujos
-        flujos_export = pd.DataFrame()
-
+        all_data = pd.DataFrame()
         for flujo in st.session_state.flujos:
             df = flujo['data'].copy()
-        
-            # ✅ Asegurar que 'Month' está como columna
-            if 'Month' not in df.columns:
-                df = df.rename_axis('Month').reset_index()
-        
-            df['Nombre'] = flujo.get('nombre', 'SinNombre')
-            df['Categoría'] = flujo.get('categoria', 'SinCategoría')
-            flujos_export = pd.concat([flujos_export, df], ignore_index=True)
-        
-        # ✅ Solo reordenar columnas si todas están presentes
-        if not flujos_export.empty:
-            columnas_deseadas = ['Month', 'Nombre', 'Categoría', 'Amount']
-            columnas_presentes = [col for col in columnas_deseadas if col in flujos_export.columns]
-            flujos_export = flujos_export[columnas_presentes]
-        
-            # Crear `all_data` correctamente
-            all_data = flujos_export.groupby(['Month', 'Categoría'])['Amount'].sum().reset_index()
-            total = all_data.groupby('Month')['Amount'].sum().reset_index()
-        else:
-            st.warning("⚠️ No hay datos para mostrar.")
-            all_data = pd.DataFrame(columns=['Month', 'Categoría', 'Amount'])
-            total = pd.DataFrame(columns=['Month', 'Amount'])
+            df['Nombre'] = flujo['nombre']
+            df['Categoría'] = flujo['categoria']
+            all_data = pd.concat([all_data, df], ignore_index=True)
+
+        all_data = all_data.groupby(['Month', 'Categoría']).sum().reset_index()
+        total = all_data.groupby('Month')['Amount'].sum().reset_index()
 
         st.subheader("🧾 Tabla Consolidada por Categoría")
         st.dataframe(all_data.pivot_table(index='Month', columns='Categoría', values='Amount', aggfunc='sum').fillna(0).style.format("${:,.2f}"))
@@ -297,52 +280,41 @@ with tab2:
 
 
 
-    st.subheader("📤 Exportar Flujos a Excel")
+        st.subheader("📤 Exportar Flujos a Excel")
 
-    # Combinar todos los flujos individuales en un solo DataFrame
-    flujos_export = pd.DataFrame()
+        # Combinar todos los flujos individuales en un solo DataFrame
+        flujos_export = pd.DataFrame()
 
-    for flujo in st.session_state.flujos:
-        df = flujo['data'].copy()
-    
-        # Asegurar que Month está como columna, no índice
-        if 'Month' not in df.columns:
-            df = df.reset_index()  # si Month estaba como índice, ahora lo será como columna
-    
-        # Agregar columnas adicionales
-        df['Nombre'] = flujo.get('nombre', 'SinNombre')
-        df['Categoría'] = flujo.get('categoria', 'SinCategoría')
-    
-        flujos_export = pd.concat([flujos_export, df], ignore_index=True)
-    
-    # Reordenar columnas solo si existen
-    columnas_esperadas = ['Month', 'Nombre', 'Categoría', 'Amount']
-    flujos_export = flujos_export[[col for col in columnas_esperadas if col in flujos_export.columns]]
+        for flujo in st.session_state.flujos:
+            df = flujo['data'].copy()
+            df['Nombre'] = flujo['nombre']
+            df['Categoría'] = flujo['categoria']
+            flujos_export = pd.concat([flujos_export, df], ignore_index=True)
 
-    # Asegurarse del orden correcto
-    flujos_export = flujos_export[['Month', 'Nombre', 'Categoría', 'Amount']]
-    flujos_export['Amount'] = flujos_export['Amount'].round(2)
+        # Asegurarse del orden correcto
+        flujos_export = flujos_export[['Month', 'Nombre', 'Categoría', 'Amount']]
+        flujos_export['Amount'] = flujos_export['Amount'].round(2)
 
-    # Flujo total
-    export_total = total.copy()
-    export_total.columns = ['Month', 'TotalNet']
+        # Flujo total
+        export_total = total.copy()
+        export_total.columns = ['Month', 'TotalNet']
 
-    # Crear archivo Excel en memoria
-    output = io.BytesIO()
+        # Crear archivo Excel en memoria
+        output = io.BytesIO()
 
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        # Hoja 1: todos los flujos combinados
-        flujos_export.to_excel(writer, index=False, sheet_name="FlujosMensuales")
-        # Hoja 2: flujo total acumulado
-        export_total.to_excel(writer, index=False, sheet_name="FlujoTotal")
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            # Hoja 1: todos los flujos combinados
+            flujos_export.to_excel(writer, index=False, sheet_name="FlujosMensuales")
+            # Hoja 2: flujo total acumulado
+            export_total.to_excel(writer, index=False, sheet_name="FlujoTotal")
 
-    # Botón de descarga
-    st.download_button(
-        label="📥 Descargar Excel",
-        data=output.getvalue(),
-        file_name="FlujosFinancieros.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+        # Botón de descarga
+        st.download_button(
+            label="📥 Descargar Excel",
+            data=output.getvalue(),
+            file_name="FlujosFinancieros.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
 
 with tab3:
@@ -403,6 +375,3 @@ with tab3:
             xaxis_title="Mes"
         )
         st.plotly_chart(fig3, use_container_width=True)
-
-
-
