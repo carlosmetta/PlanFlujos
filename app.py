@@ -219,13 +219,18 @@ with tab2:
             flujos_export = pd.concat([flujos_export, df], ignore_index=True)
         
         # ✅ Solo reordenar columnas si todas están presentes
-        columnas_deseadas = ['Month', 'Nombre', 'Categoría', 'Amount']
-        columnas_presentes = [col for col in columnas_deseadas if col in flujos_export.columns]
-        flujos_export = flujos_export[columnas_presentes]
-
-
-        all_data = all_data.groupby(['Month', 'Categoría']).sum().reset_index()
-        total = all_data.groupby('Month')['Amount'].sum().reset_index()
+        if not flujos_export.empty:
+            columnas_deseadas = ['Month', 'Nombre', 'Categoría', 'Amount']
+            columnas_presentes = [col for col in columnas_deseadas if col in flujos_export.columns]
+            flujos_export = flujos_export[columnas_presentes]
+        
+            # Crear `all_data` correctamente
+            all_data = flujos_export.groupby(['Month', 'Categoría'])['Amount'].sum().reset_index()
+            total = all_data.groupby('Month')['Amount'].sum().reset_index()
+        else:
+            st.warning("⚠️ No hay datos para mostrar.")
+            all_data = pd.DataFrame(columns=['Month', 'Categoría', 'Amount'])
+            total = pd.DataFrame(columns=['Month', 'Amount'])
 
         st.subheader("🧾 Tabla Consolidada por Categoría")
         st.dataframe(all_data.pivot_table(index='Month', columns='Categoría', values='Amount', aggfunc='sum').fillna(0).style.format("${:,.2f}"))
@@ -398,5 +403,6 @@ with tab3:
             xaxis_title="Mes"
         )
         st.plotly_chart(fig3, use_container_width=True)
+
 
 
