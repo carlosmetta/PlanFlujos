@@ -299,9 +299,20 @@ with tab2:
 
     for flujo in st.session_state.flujos:
         df = flujo['data'].copy()
-        df['Nombre'] = flujo['nombre']
-        df['Categoría'] = flujo['categoria']
+    
+        # Asegurar que Month está como columna, no índice
+        if 'Month' not in df.columns:
+            df = df.reset_index()  # si Month estaba como índice, ahora lo será como columna
+    
+        # Agregar columnas adicionales
+        df['Nombre'] = flujo.get('nombre', 'SinNombre')
+        df['Categoría'] = flujo.get('categoria', 'SinCategoría')
+    
         flujos_export = pd.concat([flujos_export, df], ignore_index=True)
+    
+    # Reordenar columnas solo si existen
+    columnas_esperadas = ['Month', 'Nombre', 'Categoría', 'Amount']
+    flujos_export = flujos_export[[col for col in columnas_esperadas if col in flujos_export.columns]]
 
     # Asegurarse del orden correcto
     flujos_export = flujos_export[['Month', 'Nombre', 'Categoría', 'Amount']]
@@ -387,4 +398,5 @@ with tab3:
             xaxis_title="Mes"
         )
         st.plotly_chart(fig3, use_container_width=True)
+
 
