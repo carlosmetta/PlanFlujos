@@ -189,9 +189,9 @@ with tab1:
                 "metodo": método,
                 "sigma": suavizado_sigma,
                 "data": pd.DataFrame({
-                    "Month": month_df['Month'],
-                    "Amount": signed_amounts
-                })
+                    "Month": month_df['Month'].values,  # 👈 esto previene que se guarde como índice
+                    "Amount": signed_amounts.values
+                }).reset_index(drop=True)
             })
             st.success(f"✅ Flujo '{nombre}' agregado correctamente.")
             st.rerun()
@@ -205,12 +205,24 @@ with tab2:
         st.info("🔔 No hay flujos guardados todavía.")
     else:
         # Combinar todos los flujos
-        all_data = pd.DataFrame()
+        flujos_export = pd.DataFrame()
+
         for flujo in st.session_state.flujos:
             df = flujo['data'].copy()
-            df['Nombre'] = flujo['nombre']
-            df['Categoría'] = flujo['categoria']
-            all_data = pd.concat([all_data, df], ignore_index=True)
+        
+            # ✅ Asegurar que 'Month' está como columna
+            if 'Month' not in df.columns:
+                df = df.rename_axis('Month').reset_index()
+        
+            df['Nombre'] = flujo.get('nombre', 'SinNombre')
+            df['Categoría'] = flujo.get('categoria', 'SinCategoría')
+            flujos_export = pd.concat([flujos_export, df], ignore_index=True)
+        
+        # ✅ Solo reordenar columnas si todas están presentes
+        columnas_deseadas = ['Month', 'Nombre', 'Categoría', 'Amount']
+        columnas_presentes = [col for col in columnas_deseadas if col in flujos_export.columns]
+        flujos_export = flujos_export[columnas_presentes]
+
 
         all_data = all_data.groupby(['Month', 'Categoría']).sum().reset_index()
         total = all_data.groupby('Month')['Amount'].sum().reset_index()
@@ -375,3 +387,4 @@ with tab3:
             xaxis_title="Mes"
         )
         st.plotly_chart(fig3, use_container_width=True)
+
